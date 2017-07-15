@@ -96,7 +96,7 @@ int main(int argc, char *argv[])
 		printf("%x ethernet d-port \n", htons(eth->eth_Sourse_host));
 		printf("%x ethernet s-port \n", htons(eth->eth_Dest_host));
 		printf("%d.%d.%d.%d source ip \n", (htonl(ip->Sourse_IP) & 0xff000000) >> 24, (htonl(ip->Sourse_IP) & 0x00ff0000) >> 16, (htonl(ip->Sourse_IP) & 0x0000ff00) >> 8, (htonl(ip->Sourse_IP) & 0x0000ff));		//done
-		printf("%d.%d.%d.%d source ip \n", (htonl(ip->Dest_IP) & 0xff000000) >> 24, (htonl(ip->Dest_IP) & 0x00ff0000) >> 16, (htonl(ip->Dest_IP) & 0x0000ff00) >> 8, (htonl(ip->Dest_IP) & 0x0000ff));			//done
+		printf("%d.%d.%d.%d dest ip \n", (htonl(ip->Dest_IP) & 0xff000000) >> 24, (htonl(ip->Dest_IP) & 0x00ff0000) >> 16, (htonl(ip->Dest_IP) & 0x0000ff00) >> 8, (htonl(ip->Dest_IP) & 0x0000ff));			//done
 		printf("%d source port \n", htons(tcp->Sourse_Port));		//done
 		printf("%d dest port \n", htons(tcp->Dest_Port));			//done
 		printf("%x data \n \n", payload);
