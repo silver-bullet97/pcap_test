@@ -32,7 +32,16 @@ struct tcp_header{
 	unsigned short Checksum;
 	unsigned short Urget_point;
 };
-
+void mac_address(char *mac){
+	for(int i = 0; i < 6; i++){
+		if(i == 5){
+			printf("%02x\n",mac[i] & 0x000000ff);
+		}
+		else{
+			printf("%02x-", mac[i] & 0x000000ff);
+		}
+	}
+}
 int main(int argc, char *argv[])
 {
 	pcap_t *handle;			/* Session handle */
@@ -52,6 +61,7 @@ int main(int argc, char *argv[])
 	unsigned int size_tcp;
 	int res=0;
 	int pointer = 1;
+	int line=0;
 	/* Define the device */
 	dev = pcap_lookupdev(errbuf);
 	if (dev == NULL) {
@@ -91,20 +101,25 @@ int main(int argc, char *argv[])
 		size_tcp = TH_LEN(tcp)*4;
 		payload = (unsigned char *)(packet + SIZE_ETH + size_ip + size_tcp);
 		printf("===============================\n");
-		printf("ethernet d-address: %x \n", eth->eth_Sourse_host);
-		printf("ethernet s-address: %x \n", eth->eth_Dest_host);
+		printf("ethernet s-address:");
+		mac_address(eth->eth_Sourse_host);		//done
+		printf("ethernet d-address:");
+		mac_address(eth->eth_Dest_host);		//done
 		printf("source ip: %d.%d.%d.%d \n", (htonl(ip->Sourse_IP) & 0xff000000) >> 24, (htonl(ip->Sourse_IP) & 0x00ff0000) >> 16, (htonl(ip->Sourse_IP) & 0x0000ff00) >> 8, (htonl(ip->Sourse_IP) & 0x0000ff));		//done
 		printf("dest ip: %d.%d.%d.%d \n", (htonl(ip->Dest_IP) & 0xff000000) >> 24, (htonl(ip->Dest_IP) & 0x00ff0000) >> 16, (htonl(ip->Dest_IP) & 0x0000ff00) >> 8, (htonl(ip->Dest_IP) & 0x0000ff));			//done
 		printf("source port: %d \n", htons(tcp->Sourse_Port));		//done
 		printf("dest port: %d \n", htons(tcp->Dest_Port));		//done
 		printf("data: \n");
-		for(int i = size_ip+size_tcp; i <= header.len; i++){
-			printf("%02x ", packet[i]);
+		for(int n = size_ip+size_tcp; n <= header.len; n++){
+			printf("%02x ", packet[n]);
+			if(pointer % 8 == 0){
+				printf("  ");
+			}
 			if(pointer % 16 == 0){
 				printf("\n");
 			}
 			if(pointer == 80){
-				printf("data의 값이 5줄을 초과하였으므로 종료하겠습니다. \n");
+				printf("data's over then 5 lines \n");
 				break;
 			}
 			pointer++;
