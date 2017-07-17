@@ -36,12 +36,12 @@ struct tcp_header{
 int main(int argc, char *argv[])
 {
 	pcap_t *handle;			/* Session handle */
-	char *dev;			/* The device to sniff on */
+	char *dev;				/* The device to sniff on */
 	char errbuf[PCAP_ERRBUF_SIZE];	/* Error string */
 	struct bpf_program fp;		/* The compiled filter */
 	char filter_exp[] = "port 80";	/* The filter expression */
-	bpf_u_int32 mask;		/* Our netmask */
-	bpf_u_int32 net;		/* Our IP */
+	bpf_u_int32 mask;			/* Our netmask */
+	bpf_u_int32 net;			/* Our IP */
 	struct pcap_pkthdr header;	/* The header that pcap gives us */
 	const u_char *packet;		/* The actual packet */
 	const struct eth_header *eth;
@@ -50,6 +50,8 @@ int main(int argc, char *argv[])
 	const char *payload;
 	unsigned int size_ip;
 	unsigned int size_tcp;
+	int res=0;
+	int pointer = 1;
 	/* Define the device */
 	dev = pcap_lookupdev(errbuf);
 	if (dev == NULL) {
@@ -78,31 +80,40 @@ int main(int argc, char *argv[])
 		return(2);
 	}
 	/* Grab a packet */
-	while(1){
-		packet = pcap_next(handle, &header);
+	while((res = pcap_next_ex(handle, &header, &packet)) >= 0){
+		if (res == 0){
+			continue;
+		}
 		eth = (struct eth_header*)(packet);
 		ip = (struct ip_header*)(packet+SIZE_ETH);
 		size_ip = IP_LEN(ip)*4;
-		if(size_ip < 20){
-			printf("%d less length ip \n", size_ip);
-		}
 		tcp = (struct tcp_header*)(packet+SIZE_ETH+size_ip);
 		size_tcp = TH_LEN(tcp)*4;
-		if(size_tcp < 20){
-			printf("%d less length tcp \n", size_tcp);
-		}
 		payload = (unsigned char *)(packet + SIZE_ETH + size_ip + size_tcp);
 		printf("===============================\n");
-		printf("%x ethernet d-port \n", htons(eth->eth_Sourse_host));
-		printf("%x ethernet s-port \n", htons(eth->eth_Dest_host));
-		printf("%d.%d.%d.%d source ip \n", (htonl(ip->Sourse_IP) & 0xff000000) >> 24, (htonl(ip->Sourse_IP) & 0x00ff0000) >> 16, (htonl(ip->Sourse_IP) & 0x0000ff00) >> 8, (htonl(ip->Sourse_IP) & 0x0000ff));		//done
-		printf("%d.%d.%d.%d dest ip \n", (htonl(ip->Dest_IP) & 0xff000000) >> 24, (htonl(ip->Dest_IP) & 0x00ff0000) >> 16, (htonl(ip->Dest_IP) & 0x0000ff00) >> 8, (htonl(ip->Dest_IP) & 0x0000ff));			//done
-		printf("%d source port \n", htons(tcp->Sourse_Port));		//done
-		printf("%d dest port \n", htons(tcp->Dest_Port));			//done
-		printf("%x data \n \n", payload);
+		printf("ethernet d-address: %x \n", eth->eth_Sourse_host);
+		printf("ethernet s-address: %x \n", eth->eth_Dest_host);
+		printf("source ip: %d.%d.%d.%d \n", (htonl(ip->Sourse_IP) & 0xff000000) >> 24, (htonl(ip->Sourse_IP) & 0x00ff0000) >> 16, (htonl(ip->Sourse_IP) & 0x0000ff00) >> 8, (htonl(ip->Sourse_IP) & 0x0000ff));		//done
+		printf("dest ip: %d.%d.%d.%d \n", (htonl(ip->Dest_IP) & 0xff000000) >> 24, (htonl(ip->Dest_IP) & 0x00ff0000) >> 16, (htonl(ip->Dest_IP) & 0x0000ff00) >> 8, (htonl(ip->Dest_IP) & 0x0000ff));			//done
+		printf("source port: %d \n", htons(tcp->Sourse_Port));		//done
+		printf("dest port: %d \n", htons(tcp->Dest_Port));		//done
+		printf("data: \n");
+		for(int i = size_ip+size_tcp; i <= header.len; i++){
+			printf("%02x ", packet[i]);
+			if(pointer % 16 == 0){
+				printf("\n");
+			}
+			if(pointer == 80){
+				printf("data의 값이 5줄을 초과하였으므로 종료하겠습니다. \n");
+				break;
+			}
+			pointer++;
+		}
+		pointer = 1;
+		printf("\n");
 		/* Print its length */
 		printf("Jacked a packet with length of [%d]\n", header.len);
-		printf("\n ===============================\n \n");
+		printf("===============================\n \n");
 	}
 	/* And close the session */
 	pcap_close(handle);
