@@ -61,7 +61,6 @@ int main(int argc, char *argv[])
 	unsigned int size_tcp;
 	int res=0;
 	int pointer = 1;
-	int line=0;
 	/* Define the device */
 	dev = pcap_lookupdev(errbuf);
 	if (dev == NULL) {
