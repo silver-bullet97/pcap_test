@@ -65,6 +65,7 @@ int main(int argc, char *argv[])
 	unsigned int size_ip;
 	unsigned int size_tcp;
 	unsigned int size_data;
+	unsigned int size_header;
 	char buf[20];
 	int res=0;
 	/* Define the device */
@@ -119,8 +120,7 @@ int main(int argc, char *argv[])
 		if(size_data <= 0){
 			continue;
 		}
-		payload = (uint8_t *)(packet + SIZE_ETH + size_ip + size_tcp);
-	
+		size_header = size_ip + size_tcp + SIZE_ETH;
 		printf("===============================\n");
 		printf("ethernet s-address:");
 		mac_address(eth->eth_Sourse_host);		//done
@@ -133,11 +133,19 @@ int main(int argc, char *argv[])
 		printf("source port: %d \n", ntohs(tcp->Sourse_Port));		//done
 		printf("dest port: %d \n", ntohs(tcp->Dest_Port));		//done
 		printf("data size: %d \n", size_data);
-		
-		printf("\n");
+		for(int i = 0; i < (int)size_data; i++){
+			printf("%02x ", packet[size_header+i]);
+			if((i + 1) == 160){
+				printf("\nhex data over ten lines \n");
+				break;
+			}else if((i + 1) % 16 == 0){
+				printf("\n");
+			}else	if((i + 1) % 8 == 0){ 
+				printf("   ");
+			}
+		}
 		/* Print its length */
-		printf("Jacked a packet with length of [%d]\n", header.len);
-		printf("===============================\n \n");
+		printf("===============================\n\n");
 	}
 	/* And close the session */
 	pcap_close(handle);
