@@ -1,36 +1,41 @@
 #include <pcap.h>
 #include <stdio.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <stdint.h>
 #define SIZE_ETH 14						//ethernet length
 #define IP_LEN(ip)  (((ip)->ver_len) & 0x0f)		//ip length
 #define IP_V(ip)    (((ip)->ver_len) >> 4)			//ip version
 #define TH_LEN(tcp) (((tcp)->Off_set & 0xf0) >> 4)	//tcp length
+#define ETHERTYPE_IP 0x0800
+#define PROTOCOL_ID 6
 
 struct eth_header{
-	unsigned char eth_Sourse_host[6];
-	unsigned char eth_Dest_host[6];
-	unsigned short eth_type;
+	uint8_t eth_Sourse_host[6];
+	uint8_t eth_Dest_host[6];
+	uint16_t eth_type;
 };
 struct ip_header{
-	unsigned char ver_len;
-	unsigned char servivce;
-	unsigned short Total_Length;
-	unsigned short Idntification;
-	unsigned short Offset;
-	unsigned char TTL;
-	unsigned char protocol;
-	unsigned short Checksum;
-	unsigned long Sourse_IP;
-	unsigned long Dest_IP;
+	uint8_t ver_len;
+	uint8_t servivce;
+	uint16_t Total_Length;
+	uint16_t Idntification;
+	uint16_t Offset;
+	uint8_t TTL;
+	uint8_t protocol;
+	uint16_t Checksum;
+	uint32_t Sourse_IP;
+	uint32_t Dest_IP;
 };
 struct tcp_header{
-	unsigned short Sourse_Port;
-	unsigned short Dest_Port;
-	unsigned long Seq;
-	unsigned long Ack;
-	unsigned short Off_set;
-	unsigned short Window_size;
-	unsigned short Checksum;
-	unsigned short Urget_point;
+	uint16_t Sourse_Port;
+	uint16_t Dest_Port;
+	uint32_t Seq;
+	uint32_t Ack;
+	uint16_t Off_set;
+	uint16_t Window_size;
+	uint16_t Checksum;
+	uint16_t Urget_point;
 };
 void mac_address(char *mac){
 	for(int i = 0; i < 6; i++){
@@ -59,22 +64,23 @@ int main(int argc, char *argv[])
 	const char *payload;
 	unsigned int size_ip;
 	unsigned int size_tcp;
+	unsigned int size_data;
+	char buf[20];
 	int res=0;
-	int pointer = 1;
 	/* Define the device */
 	dev = pcap_lookupdev(errbuf);
-	if (dev == NULL) {
+	if (argv[1] == NULL) {
 		fprintf(stderr, "Couldn't find default device: %s\n", errbuf);
 		return(2);
 	}
 	/* Find the properties for the device */
-	if (pcap_lookupnet(dev, &net, &mask, errbuf) == -1) {
+	if (pcap_lookupnet(argv[1], &net, &mask, errbuf) == -1) {
 		fprintf(stderr, "Couldn't get netmask for device %s: %s\n", dev, errbuf);
 		net = 0;
 		mask = 0;
 	}
 	/* Open the session in promiscuous mode */
-	handle = pcap_open_live(dev, BUFSIZ, 1, 1000, errbuf);
+	handle = pcap_open_live(argv[1], BUFSIZ, 1, 1000, errbuf);
 	if (handle == NULL) {
 		fprintf(stderr, "Couldn't open device %s: %s\n", dev, errbuf);
 		return(2);
@@ -92,38 +98,42 @@ int main(int argc, char *argv[])
 	while((res = pcap_next_ex(handle, &header, &packet)) >= 0){
 		if (res == 0){
 			continue;
+		}else if(res <= -1){
+			printf("EOF \n");
+			continue;
 		}
 		eth = (struct eth_header*)(packet);
-		ip = (struct ip_header*)(packet+SIZE_ETH);
-		size_ip = IP_LEN(ip)*4;
-		tcp = (struct tcp_header*)(packet+SIZE_ETH+size_ip);
-		size_tcp = TH_LEN(tcp)*4;
-		payload = (unsigned char *)(packet + SIZE_ETH + size_ip + size_tcp);
+		if(ntohs((struct eth_header*)eth->eth_type) == ETHERTYPE_IP){
+			ip = (struct ip_header*)(packet+SIZE_ETH);
+			size_ip = IP_LEN(ip)*4;
+		}else{
+			continue;
+		}
+		if((struct ip_header*)ip->protocol == PROTOCOL_ID){
+			tcp = (struct tcp_header*)(packet+SIZE_ETH+size_ip);
+			size_tcp = TH_LEN(tcp)*4;
+		}else{
+			continue;
+		}
+		size_data = ntohs(ip->Total_Length) - size_ip - size_tcp;
+		if(size_data <= 0){
+			continue;
+		}
+		payload = (uint8_t *)(packet + SIZE_ETH + size_ip + size_tcp);
+	
 		printf("===============================\n");
 		printf("ethernet s-address:");
 		mac_address(eth->eth_Sourse_host);		//done
 		printf("ethernet d-address:");
 		mac_address(eth->eth_Dest_host);		//done
-		printf("source ip: %d.%d.%d.%d \n", (htonl(ip->Sourse_IP) & 0xff000000) >> 24, (htonl(ip->Sourse_IP) & 0x00ff0000) >> 16, (htonl(ip->Sourse_IP) & 0x0000ff00) >> 8, (htonl(ip->Sourse_IP) & 0x0000ff));		//done
-		printf("dest ip: %d.%d.%d.%d \n", (htonl(ip->Dest_IP) & 0xff000000) >> 24, (htonl(ip->Dest_IP) & 0x00ff0000) >> 16, (htonl(ip->Dest_IP) & 0x0000ff00) >> 8, (htonl(ip->Dest_IP) & 0x0000ff));			//done
-		printf("source port: %d \n", htons(tcp->Sourse_Port));		//done
-		printf("dest port: %d \n", htons(tcp->Dest_Port));		//done
-		printf("data: \n");
-		for(int n = size_ip+size_tcp; n <= header.len; n++){
-			printf("%02x ", packet[n]);
-			if(pointer % 8 == 0){
-				printf("  ");
-			}
-			if(pointer % 16 == 0){
-				printf("\n");
-			}
-			if(pointer == 80){
-				printf("data's over then 5 lines \n");
-				break;
-			}
-			pointer++;
-		}
-		pointer = 1;
+		inet_ntop(AF_INET, (void *)&ip->Sourse_IP, buf, sizeof(buf));
+		printf("sourse ip: %s \n", buf);			//done
+		inet_ntop(AF_INET, (void *)&ip->Dest_IP, buf, sizeof(buf));
+		printf("Dest ip: %s \n", buf);			//done
+		printf("source port: %d \n", ntohs(tcp->Sourse_Port));		//done
+		printf("dest port: %d \n", ntohs(tcp->Dest_Port));		//done
+		printf("data size: %d \n", size_data);
+		
 		printf("\n");
 		/* Print its length */
 		printf("Jacked a packet with length of [%d]\n", header.len);
